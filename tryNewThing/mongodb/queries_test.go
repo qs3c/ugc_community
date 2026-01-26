@@ -57,7 +57,7 @@ func (suite *MongoDBTestSuite) TearDownSuite() {
 	_, err := suite.col.DeleteMany(ctx, bson.D{})
 	assert.NoError(suite.T(), err)
 
-	_,err = suite.col.Indexes().DropAll(ctx)
+	_, err = suite.col.Indexes().DropAll(ctx)
 	assert.NoError(suite.T(), err)
 }
 
@@ -76,3 +76,48 @@ func (suite *MongoDBTestSuite) TestOr() {
 	suite.T().Log("查询结果:", arts)
 }
 
+func (suite *MongoDBTestSuite) TestAnd() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	filter := bson.A{bson.D{bson.E{Key: "id", Value: 1}}, bson.D{bson.E{Key: "author_id", Value: 11}}}
+
+	res, err := suite.col.Find(ctx, bson.D{{Key: "$and", Value: filter}})
+	assert.NoError(suite.T(), err)
+
+	var arts []Article
+	err = res.All(ctx, &arts)
+	assert.NoError(suite.T(), err)
+	suite.T().Log("查询结果:", arts)
+}
+
+func (suite *MongoDBTestSuite) TestIn() {
+	ctx, cancel := context.WithTimeout(context.Background(),10*time.Second)
+	defer cancel()
+
+	filter := bson.D{{Key:"id",Value:bson.D{bson.E{Key: "$in",Value: []int{1,2}}}}}
+
+	proj := bson.M{"id":1}
+	// proj := bson.M{"id":0}
+	
+	res,err:=suite.col.Find(ctx,filter,options.Find().SetProjection(proj))
+	assert.NoError(suite.T(),err)
+
+	var arts []Article
+	err = res.All(ctx,&arts)
+	assert.NoError(suite.T(),err)
+	suite.T().Log("查询结果:",arts)
+}
+
+// 测试索引
+func (suite *MongoDBTestSuite) TestIndexes(){
+	ctx, cancel := context.WithTimeout(context.Background(),10*time.Second)
+	defer cancel()
+
+	ires,err:=suite.col.Indexes().CreateOne(ctx,mongo.IndexModel{
+		Keys: bson.D{{Key:"id",Value:1}},
+		Options: options.Index().SetUnique(true).SetName("idx_id"),
+	})
+	assert.NoError(suite.T(),err)
+	suite.T().Log("创建索引:",ires)
+}
